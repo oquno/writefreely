@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS `collections` (
   `alias` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `description` varchar(160) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `style_sheet` text,
+  `style_sheet` text CHARACTER SET utf8mb4,
   `script` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
   `format` varchar(8) DEFAULT NULL,
   `privacy` tinyint(1) NOT NULL,
