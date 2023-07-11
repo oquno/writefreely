@@ -1,7 +1,7 @@
 {{ define "posts" }}
 {{ range $el := .Posts }}<article id="post-{{.ID}}" class="{{.Font}} h-entry" itemscope itemtype="http://schema.org/BlogPosting">
 	{{if .IsScheduled}}<p class="badge">Scheduled</p>{{end}}
-	{{if and ($.Format.ShowDates) (.Title.String) }}<time class="dt-published" datetime="{{.Created8601}}" pubdate itemprop="datePublished" content="{{.Created}}">{{if not .Title.String}}<a href="{{$.CanonicalURL}}{{.Slug.String}}" itemprop="url">{{end}}{{.DisplayDate}}{{if not .Title.String}}</a>{{end}}</time>{{end}}
+	{{if and ($.Format.ShowDates) (.Title.String) }}<time class="dt-published" datetime="{{.Created8601}}" pubdate itemprop="datePublished" content="{{.Created}}">{{if not .Title.String}}<a href="{{$.CanonicalURL}}{{.Slug.String}}" itemprop="url">{{end}}{{.Created.Format "2006/01/02"}}{{if not .Title.String}}</a>{{end}}</time>{{end}}
 	{{if .Title.String}}<h2 class="post-title" itemprop="name" class="p-name">
 		{{- if .HasTitleLink -}}
 			{{.HTMLTitle}} <a class="user hidden action" href="{{if not $.SingleUser}}/{{$.Alias}}/{{.Slug.String}}{{else}}{{$.CanonicalURL}}{{.Slug.String}}{{end}}">view{{if .IsPaid}} {{template "paid-badge" .}}{{end}}</a>
@@ -32,7 +32,7 @@
 <h2 class="post-title" itemprop="name">
 	{{if $.Format.ShowDates -}}
 		{{- if .IsPaid}}{{template "paid-badge" .}}{{end -}}
-		<time class="dt-published" datetime="{{.Created8601}}" pubdate itemprop="datePublished" content="{{.Created}}"><a href="{{if not $.SingleUser}}/{{$.Alias}}/{{.Slug.String}}{{else}}{{$.CanonicalURL}}{{.Slug.String}}{{end}}" itemprop="url" class="u-url">{{.DisplayDate}}</a></time>
+		<time class="dt-published" datetime="{{.Created8601}}" pubdate itemprop="datePublished" content="{{.Created}}"><a href="{{if not $.SingleUser}}/{{$.Alias}}/{{.Slug.String}}{{else}}{{$.CanonicalURL}}{{.Slug.String}}{{end}}" itemprop="url" class="u-url">{{.Created.Format "2006/01/02"}}</a></time>
 	{{- end}}
 	{{if $.IsOwner}}
 		{{if not $.Format.ShowDates}}<a class="user hidden action" href="{{if not $.SingleUser}}/{{$.Alias}}/{{.Slug.String}}{{else}}{{$.CanonicalURL}}{{.Slug.String}}{{end}}">view</a>{{end}}
