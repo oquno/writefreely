@@ -1,5 +1,5 @@
 GITREV=`git describe | cut -c 2-`
-LDFLAGS=-ldflags="-X 'github.com/writefreely/writefreely.softwareVer=$(GITREV)'"
+LDFLAGS=-ldflags="-s -w -X 'github.com/writefreely/writefreely.softwareVer=$(GITREV)'"
 
 GOCMD=go
 GOINSTALL=$(GOCMD) install $(LDFLAGS)
@@ -86,6 +86,7 @@ release : clean ui
 	cp -r templates $(BUILDPATH)
 	cp -r pages $(BUILDPATH)
 	cp -r static $(BUILDPATH)
+	rm -r $(BUILDPATH)/static/local
 	scripts/invalidate-css.sh $(BUILDPATH)
 	mkdir $(BUILDPATH)/keys
 	$(MAKE) build-linux

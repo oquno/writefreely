@@ -16,7 +16,6 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -59,7 +58,7 @@ var (
 	debugging bool
 
 	// Software version can be set from git env using -ldflags
-	softwareVer = "0.13.2"
+	softwareVer = "0.15.0"
 
 	// DEPRECATED VARS
 	isSingleUser bool
@@ -177,7 +176,7 @@ func (app *App) LoadKeys() error {
 		executable = filepath.Base(executable)
 	}
 
-	app.keys.EmailKey, err = ioutil.ReadFile(emailKeyPath)
+	app.keys.EmailKey, err = os.ReadFile(emailKeyPath)
 	if err != nil {
 		return err
 	}
@@ -185,7 +184,7 @@ func (app *App) LoadKeys() error {
 	if debugging {
 		log.Info("  %s", cookieAuthKeyPath)
 	}
-	app.keys.CookieAuthKey, err = ioutil.ReadFile(cookieAuthKeyPath)
+	app.keys.CookieAuthKey, err = os.ReadFile(cookieAuthKeyPath)
 	if err != nil {
 		return err
 	}
@@ -193,7 +192,7 @@ func (app *App) LoadKeys() error {
 	if debugging {
 		log.Info("  %s", cookieKeyPath)
 	}
-	app.keys.CookieKey, err = ioutil.ReadFile(cookieKeyPath)
+	app.keys.CookieKey, err = os.ReadFile(cookieKeyPath)
 	if err != nil {
 		return err
 	}
@@ -201,7 +200,7 @@ func (app *App) LoadKeys() error {
 	if debugging {
 		log.Info("  %s", csrfKeyPath)
 	}
-	app.keys.CSRFKey, err = ioutil.ReadFile(csrfKeyPath)
+	app.keys.CSRFKey, err = os.ReadFile(csrfKeyPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Error(`Missing key: %s.
@@ -318,7 +317,7 @@ func handleTemplatedPage(app *App, w http.ResponseWriter, r *http.Request, t *te
 	}{
 		StaticPage: pageForReq(app, r),
 	}
-	if r.URL.Path == "/about" || r.URL.Path == "/privacy" {
+	if r.URL.Path == "/about" || r.URL.Path == "/contact" || r.URL.Path == "/privacy" {
 		var c *instanceContent
 		var err error
 
@@ -329,6 +328,12 @@ func handleTemplatedPage(app *App, w http.ResponseWriter, r *http.Request, t *te
 			p.AboutStats = &InstanceStats{}
 			p.AboutStats.NumPosts, _ = app.db.GetTotalPosts()
 			p.AboutStats.NumBlogs, _ = app.db.GetTotalCollections()
+		} else if r.URL.Path == "/contact" {
+			c, err = getContactPage(app)
+			if c.Updated.IsZero() {
+				// Page was never set up, so return 404
+				return ErrPostNotFound
+			}
 		} else {
 			c, err = getPrivacyPage(app)
 		}
@@ -360,7 +365,7 @@ func pageForReq(app *App, r *http.Request) page.StaticPage {
 	}
 
 	// Use custom style, if file exists
-	if _, err := os.Stat(filepath.Join(staticDir, "local", "custom.css")); err == nil {
+	if _, err := os.Stat(filepath.Join(app.cfg.Server.StaticParentDir, staticDir, "local", "custom.css")); err == nil {
 		p.CustomCSS = true
 	}
 
@@ -422,6 +427,17 @@ func Initialize(apper Apper, debug bool) (*App, error) {
 	}
 
 	initActivityPub(apper.App())
+
+	if apper.App().cfg.Email.Domain != "" || apper.App().cfg.Email.MailgunPrivate != "" {
+		if apper.App().cfg.Email.Domain == "" {
+			log.Error("[FAILED] Starting publish jobs queue: no [letters]domain config value set.")
+		} else if apper.App().cfg.Email.MailgunPrivate == "" {
+			log.Error("[FAILED] Starting publish jobs queue: no [letters]mailgun_private config value set.")
+		} else {
+			log.Info("Starting publish jobs queue...")
+			go startPublishJobsQueue(apper.App())
+		}
+	}
 
 	// Handle local timeline, if enabled
 	if apper.App().cfg.App.LocalTimeline {
@@ -569,8 +585,8 @@ func (app *App) InitDecoder() {
 // tests the connection.
 func ConnectToDatabase(app *App) error {
 	// Check database configuration
-	if app.cfg.Database.Type == driverMySQL && (app.cfg.Database.User == "" || app.cfg.Database.Password == "") {
-		return fmt.Errorf("Database user or password not set.")
+	if app.cfg.Database.Type == driverMySQL && app.cfg.Database.User == "" {
+		return fmt.Errorf("Database user not set.")
 	}
 	if app.cfg.Database.Host == "" {
 		app.cfg.Database.Host = "localhost"
