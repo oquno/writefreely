@@ -48,6 +48,11 @@
 				<a class="xtra-feature dash-nav" href="/me/posts/" dir="{{.Direction}}">Drafts</a>
 				{{ end }}
 			</nav>
+		<form id="searchForm" autocomplete="off">
+			<input type="text" id="searchInput" placeholder="検索キーワードを入力" />
+			<div id="suggestions" class="suggestion-list"></div>
+		</form>
+		<script src="/search/search.js"></script>
 		</header>
 
 		{{if .Silenced}}

@@ -6,6 +6,7 @@
 		<title>{{.Tag}} &mdash; {{.Collection.DisplayTitle}}</title>
 		
 		<link rel="stylesheet" type="text/css" href="/css/write.css" />
+		<link rel="stylesheet" type="text/css" href="/search/style.css" />
 		{{if .CustomCSS}}<link rel="stylesheet" type="text/css" href="/local/custom.css" />{{end}}
 		<link rel="shortcut icon" href="/favicon.ico" />
 		{{if not .Collection.IsPrivate}}<link rel="alternate" type="application/rss+xml" title="{{.Tag}} posts on {{.DisplayTitle}}" href="{{.CanonicalURL}}tag:{{.Tag}}/feed/" />{{end}}
@@ -54,6 +55,11 @@
 				{{end}}
 			</nav>
 		</header>
+                <form id="searchForm" autocomplete="off">
+                        <input type="text" id="searchInput" placeholder="検索キーワードを入力" />
+                        <div id="suggestions" class="suggestion-list"></div>
+                </form>
+                <script src="/search/search.js"></script>
 		
 		{{if .Silenced}}
 			{{template "user-silenced"}}
