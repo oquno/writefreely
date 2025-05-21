@@ -609,7 +609,7 @@ func fetchCollectionPosts(app *App, w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
-	ps, err := app.db.GetPosts(app.cfg, c, page, isCollOwner, false, false)
+	ps, err := app.db.GetPosts(app.cfg, c, page, isCollOwner, false, false, "")
 	if err != nil {
 		return err
 	}
@@ -829,15 +829,18 @@ func checkUserForCollection(app *App, cr *collectionReq, r *http.Request, isPost
 	return u, nil
 }
 
-func newDisplayCollection(c *Collection, cr *collectionReq, page int) *DisplayCollection {
+func newDisplayCollection(c *Collection, cr *collectionReq, page int) (*DisplayCollection, error) {
 	coll := &DisplayCollection{
 		CollectionObj: NewCollectionObj(c),
 		CurrentPage:   page,
 		Prefix:        cr.prefix,
 		IsTopLevel:    isSingleUser,
 	}
-	c.db.GetPostsCount(coll.CollectionObj, cr.isCollOwner)
-	return coll
+	err := c.db.GetPostsCount(coll.CollectionObj, cr.isCollOwner)
+	if err != nil {
+		return nil, err
+	}
+	return coll, nil
 }
 
 // getCollectionPage returns the collection page as an int. If the parsed page value is not
@@ -889,9 +892,23 @@ func handleViewCollection(app *App, w http.ResponseWriter, r *http.Request) erro
 
 	// Fetch extra data about the Collection
 	// TODO: refactor out this logic, shared in collection.go:fetchCollection()
-	coll := newDisplayCollection(c, cr, page)
+	coll, err := newDisplayCollection(c, cr, page)
+	if err != nil {
+		return err
+	}
 
-	coll.TotalPages = int(math.Ceil(float64(coll.TotalPosts) / float64(coll.Format.PostsPerPage())))
+	var ct PostType
+	if isArchiveView(r) {
+		ct = postArch
+	}
+
+	// FIXME: this number will be off when user has pinned posts but isn't a Pro user
+	ppp := coll.Format.PostsPerPage()
+	if ct == postArch {
+		ppp = postsPerArchPage
+	}
+
+	coll.TotalPages = int(math.Ceil(float64(coll.TotalPosts) / float64(ppp)))
 	if coll.TotalPages > 0 && page > coll.TotalPages {
 		redirURL := fmt.Sprintf("/page/%d", coll.TotalPages)
 		if !app.cfg.App.SingleUser {
@@ -900,7 +917,7 @@ func handleViewCollection(app *App, w http.ResponseWriter, r *http.Request) erro
 		return impart.HTTPError{http.StatusFound, redirURL}
 	}
 
-	coll.Posts, _ = app.db.GetPosts(app.cfg, c, page, cr.isCollOwner, false, false)
+	coll.Posts, _ = app.db.GetPosts(app.cfg, c, page, cr.isCollOwner, false, false, "")
 
 	// Serve collection
 	displayPage := CollectionPage{
@@ -959,6 +976,9 @@ func handleViewCollection(app *App, w http.ResponseWriter, r *http.Request) erro
 	collTmpl := "collection"
 	if app.cfg.App.Chorus {
 		collTmpl = "chorus-collection"
+	} else if isArchiveView(r) {
+		displayPage.NavSuffix = "/archive/"
+		collTmpl = "collection-archive"
 	}
 	err = templates[collTmpl].ExecuteTemplate(w, "collection", displayPage)
 	if err != nil {
@@ -983,6 +1003,10 @@ func handleViewCollection(app *App, w http.ResponseWriter, r *http.Request) erro
 	}()
 
 	return err
+}
+
+func isArchiveView(r *http.Request) bool {
+	return strings.HasSuffix(r.RequestURI, "/archive/") || mux.Vars(r)["archive"] == "archive"
 }
 
 func handleViewMention(app *App, w http.ResponseWriter, r *http.Request) error {
@@ -1020,7 +1044,7 @@ func handleViewCollectionTag(app *App, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	coll := newDisplayCollection(c, cr, page)
+	coll, _ := newDisplayCollection(c, cr, page)
 
 	taggedPostIDs, err := app.db.GetAllPostsTaggedIDs(c, tag, cr.isCollOwner)
 	if err != nil {
@@ -1118,7 +1142,7 @@ func handleViewCollectionLang(app *App, w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	coll := newDisplayCollection(c, cr, page)
+	coll, _ := newDisplayCollection(c, cr, page)
 	coll.Language = lang
 	coll.NavSuffix = fmt.Sprintf("/lang:%s", lang)
 

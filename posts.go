@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gosimple/slug"
 	"github.com/guregu/null"
 	"github.com/guregu/null/zero"
 	"github.com/kylemcc/twitter-text-go/extract"
@@ -30,7 +31,6 @@ import (
 	stripmd "github.com/writeas/go-strip-markdown/v2"
 	"github.com/writeas/impart"
 	"github.com/writeas/monday"
-	"github.com/writeas/slug"
 	"github.com/writeas/web-core/activitystreams"
 	"github.com/writeas/web-core/bots"
 	"github.com/writeas/web-core/converter"
@@ -49,6 +49,12 @@ const (
 	postIDLen     = 10
 
 	postMetaDateFormat = "2006-01-02 15:04:05"
+)
+
+type PostType string
+
+const (
+	postArch PostType = "archive"
 
 	shortCodePaid = "<!--paid-->"
 )
@@ -105,6 +111,7 @@ type (
 		Created        time.Time     `db:"created" json:"created"`
 		Updated        time.Time     `db:"updated" json:"updated"`
 		ViewCount      int64         `db:"view_count" json:"-"`
+		LikeCount      int64         `db:"like_count" json:"likes"`
 		Title          zero.String   `db:"title" json:"title"`
 		HTMLTitle      template.HTML `db:"title" json:"-"`
 		Content        string        `db:"content" json:"body"`
@@ -127,6 +134,7 @@ type (
 		IsTopLevel  bool           `json:"-"`
 		DisplayDate string         `json:"-"`
 		Views       int64          `json:"views"`
+		Likes       int64          `json:"likes"`
 		Owner       *PublicUser    `json:"-"`
 		IsOwner     bool           `json:"-"`
 		URL         string         `json:"url,omitempty"`
@@ -314,6 +322,8 @@ func handleViewPost(app *App, w http.ResponseWriter, r *http.Request) error {
 	// Display reserved page if that is requested resource
 	if t, ok := pages[r.URL.Path[1:]+".tmpl"]; ok {
 		return handleTemplatedPage(app, w, r, t)
+	} else if r.URL.Path == "/sitemap.xml" && !app.cfg.App.SingleUser {
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "Page not found."}
 	} else if (strings.Contains(r.URL.Path, ".") && !isRaw && !isMarkdown) || r.URL.Path == "/robots.txt" || r.URL.Path == "/manifest.json" {
 		// Serve static file
 		app.shttp.ServeHTTP(w, r)
@@ -1182,6 +1192,7 @@ func fetchPostProperty(app *App, w http.ResponseWriter, r *http.Request) error {
 func (p *Post) processPost() PublicPost {
 	res := &PublicPost{Post: p, Views: 0}
 	res.Views = p.ViewCount
+	res.Likes = p.LikeCount
 	// TODO: move to own function
 	loc := monday.FuzzyLocale(p.Language.String)
 	res.DisplayDate = monday.Format(p.Created, monday.LongFormatsByLocale[loc], loc)
@@ -1505,6 +1516,10 @@ func viewCollectionPost(app *App, w http.ResponseWriter, r *http.Request) error 
 				// User tried to access blog feed without a trailing slash, and
 				// there's no post with a slug "feed"
 				return impart.HTTPError{http.StatusFound, c.CanonicalURL() + "feed/"}
+			} else if slug == "archive" {
+				// User tried to access blog Archive without a trailing slash, and
+				// there's no post with a slug "archive"
+				return impart.HTTPError{http.StatusFound, c.CanonicalURL() + "archive/"}
 			}
 
 			po := &Post{
@@ -1669,7 +1684,7 @@ func (rp *RawPost) Updated8601() string {
 	return rp.Updated.Format("2006-01-02T15:04:05Z")
 }
 
-var imageURLRegex = regexp.MustCompile(`(?i)[^ ]+\.(gif|png|jpg|jpeg|image)$`)
+var imageURLRegex = regexp.MustCompile(`(?i)[^ ]+\.(gif|png|jpg|jpeg|avif|avifs|webp|jxl|image)$`)
 
 func (p *Post) extractImages() {
 	p.Images = extractImages(p.Content)
