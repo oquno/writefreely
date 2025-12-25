@@ -162,6 +162,7 @@ type (
 
 		// Defaults
 		DefaultVisibility string `ini:"default_visibility"`
+		SlugFromTitle     bool   `ini:"slug_from_title"`
 
 		// Check for Updates
 		UpdateChecks bool `ini:"update_checks"`

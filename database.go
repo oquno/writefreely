@@ -86,8 +86,8 @@ type writestore interface {
 	GetAnonymousPosts(u *User, page int) (*[]PublicPost, error)
 	GetUserPosts(u *User) (*[]PublicPost, error)
 
-	CreateOwnedPost(post *SubmittedPost, accessToken, collAlias, hostName string) (*PublicPost, error)
-	CreatePost(userID, collID int64, post *SubmittedPost) (*Post, error)
+	CreateOwnedPost(cfg *config.Config, post *SubmittedPost, accessToken, collAlias, hostName string) (*PublicPost, error)
+	CreatePost(cfg *config.Config, userID, collID int64, post *SubmittedPost) (*Post, error)
 	UpdateOwnedPost(post *AuthenticatedPost, userID int64) error
 	GetEditablePost(id, editToken string) (*PublicPost, error)
 	PostIDExists(id string) bool
@@ -622,7 +622,7 @@ func (db *datastore) ConsumePasswordResetToken(t string) error {
 	return nil
 }
 
-func (db *datastore) CreateOwnedPost(post *SubmittedPost, accessToken, collAlias, hostName string) (*PublicPost, error) {
+func (db *datastore) CreateOwnedPost(cfg *config.Config, post *SubmittedPost, accessToken, collAlias, hostName string) (*PublicPost, error) {
 	var userID, collID int64 = -1, -1
 	var coll *Collection
 	var err error
@@ -645,7 +645,7 @@ func (db *datastore) CreateOwnedPost(post *SubmittedPost, accessToken, collAlias
 	}
 
 	rp := &PublicPost{}
-	rp.Post, err = db.CreatePost(userID, collID, post)
+	rp.Post, err = db.CreatePost(cfg, userID, collID, post)
 	if err != nil {
 		return rp, err
 	}
@@ -656,7 +656,7 @@ func (db *datastore) CreateOwnedPost(post *SubmittedPost, accessToken, collAlias
 	return rp, nil
 }
 
-func (db *datastore) CreatePost(userID, collID int64, post *SubmittedPost) (*Post, error) {
+func (db *datastore) CreatePost(cfg *config.Config, userID, collID int64, post *SubmittedPost) (*Post, error) {
 	idLen := postIDLen
 	friendlyID := id.GenerateFriendlyRandomString(idLen)
 
@@ -682,10 +682,10 @@ func (db *datastore) CreatePost(userID, collID int64, post *SubmittedPost) (*Pos
 		if collID > 0 {
 			ownerCollID.Int64 = collID
 			ownerCollID.Valid = true
-			var slugVal string
+			slugVal := friendlyID
 			if post.Slug != nil && *post.Slug != "" {
 				slugVal = *post.Slug
-			} else {
+			} else if cfg != nil && cfg.App.SlugFromTitle {
 				if post.Title != nil && *post.Title != "" {
 					slugVal = getSlug(*post.Title, post.Language.String)
 					if slugVal == "" {
@@ -694,9 +694,9 @@ func (db *datastore) CreatePost(userID, collID int64, post *SubmittedPost) (*Pos
 				} else {
 					slugVal = getSlug(*post.Content, post.Language.String)
 				}
-			}
-			if slugVal == "" {
-				slugVal = friendlyID
+				if slugVal == "" {
+					slugVal = friendlyID
+				}
 			}
 			slug = sql.NullString{slugVal, true}
 		}
