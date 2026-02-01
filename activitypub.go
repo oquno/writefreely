@@ -436,6 +436,17 @@ func handleFetchCollectionInbox(app *App, w http.ResponseWriter, r *http.Request
 			a.AppendObject(f.Raw())
 			_, to = f.GetActor(0)
 			obj := f.Raw().GetObjectIRI(0)
+			if obj == nil {
+				if debugging {
+					log.Error("GetObjectIRI on Follow for actor is empty; trying object")
+				}
+				ao := f.Raw().GetObject(0)
+				if ao == nil {
+					log.Error("Fell back to GetObject and none parsed, so no actor ID! Follow request probably FAILED!")
+				} else {
+					obj = ao.GetId()
+				}
+			}
 			a.AppendActor(obj)
 
 			// First get actor information
@@ -968,6 +979,23 @@ func getRemoteUserFromHandle(app *App, handle string) (*RemoteUser, error) {
 		return nil, err
 	}
 	u.URL = urlVal.String
+	return &u, nil
+}
+
+// getRemoteUserFromURL retrieves a RemoteUser from their public profile URL.
+func getRemoteUserFromURL(app *App, urlStr string) (*RemoteUser, error) {
+	u := RemoteUser{URL: urlStr}
+	var urlVal, handle sql.NullString
+	err := app.db.QueryRow("SELECT id, actor_id, inbox, shared_inbox, url, handle FROM remoteusers WHERE url = ?", urlStr).Scan(&u.ID, &u.ActorID, &u.Inbox, &u.SharedInbox, &urlVal, &handle)
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, ErrRemoteUserNotFound
+	case err != nil:
+		log.Error("Couldn't get remote user from URL %s: %v", urlStr, err)
+		return nil, err
+	}
+	u.URL = urlVal.String
+	u.Handle = handle.String
 	return &u, nil
 }
 

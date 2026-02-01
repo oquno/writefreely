@@ -59,7 +59,7 @@ var (
 	debugging bool
 
 	// Software version can be set from git env using -ldflags
-	softwareVer = "0.15.1"
+	softwareVer = "0.16.0"
 
 	// DEPRECATED VARS
 	isSingleUser bool
@@ -429,15 +429,11 @@ func Initialize(apper Apper, debug bool) (*App, error) {
 
 	initActivityPub(apper.App())
 
-	if apper.App().cfg.Email.Domain != "" || apper.App().cfg.Email.MailgunPrivate != "" {
-		if apper.App().cfg.Email.Domain == "" {
-			log.Error("[FAILED] Starting publish jobs queue: no [letters]domain config value set.")
-		} else if apper.App().cfg.Email.MailgunPrivate == "" {
-			log.Error("[FAILED] Starting publish jobs queue: no [letters]mailgun_private config value set.")
-		} else {
-			log.Info("Starting publish jobs queue...")
-			go startPublishJobsQueue(apper.App())
-		}
+	if apper.App().cfg.Email.Enabled() {
+		log.Info("Starting publish jobs queue...")
+		go startPublishJobsQueue(apper.App())
+	} else {
+		log.Info("[jobs] Not starting publish jobs queue: no email provider is configured.")
 	}
 
 	// Handle local timeline, if enabled
@@ -603,6 +599,18 @@ func ConnectToDatabase(app *App) error {
 	err := app.db.Ping()
 	if err != nil {
 		return fmt.Errorf("Database ping failed: %s", err)
+	}
+	log.Info("Connected to database.")
+
+	ver, err := app.db.version()
+	if err != nil {
+		log.Error("Unable to get DB version: %v", err)
+	} else {
+		log.Info("Database version: %v", ver)
+		if app.cfg.Database.Type == driverMySQL && strings.HasPrefix(ver, "5.") {
+			log.Info("Enabling compatibility for MySQL v5.x")
+			app.db.useSpencerRegex = true
+		}
 	}
 
 	return nil
@@ -863,7 +871,7 @@ func connectToDatabase(app *App) {
 		log.Error("%s", err)
 		os.Exit(1)
 	}
-	app.db = &datastore{db, app.cfg.Database.Type}
+	app.db = &datastore{DB: db, driverName: app.cfg.Database.Type}
 }
 
 func shutdown(app *App) {

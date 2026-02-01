@@ -631,18 +631,19 @@ func fetchCollectionPosts(app *App, w http.ResponseWriter, r *http.Request) erro
 type CollectionPage struct {
 	page.StaticPage
 	*DisplayCollection
-	IsCustomDomain bool
-	IsWelcome      bool
-	IsOwner        bool
-	IsCollLoggedIn bool
-	Honeypot       string
-	IsSubscriber   bool
-	CanPin         bool
-	Username       string
-	Monetization   string
-	Flash          template.HTML
-	Collections    *[]Collection
-	PinnedPosts    *[]PublicPost
+	IsCustomDomain  bool
+	IsWelcome       bool
+	IsOwner         bool
+	IsCollLoggedIn  bool
+	Honeypot        string
+	IsSubscriber    bool
+	CanPin          bool
+	Username        string
+	Monetization    string
+	FediverseAuthor string
+	Flash           template.HTML
+	Collections     *[]Collection
+	PinnedPosts     *[]PublicPost
 
 	IsAdmin   bool
 	CanInvite bool
@@ -885,7 +886,6 @@ func handleViewCollection(app *App, w http.ResponseWriter, r *http.Request) erro
 	// Serve ActivityStreams data now, if requested
 	if IsActivityPubRequest(r) {
 		ac := c.PersonObject()
-		ac.Context = []interface{}{activitystreams.Namespace}
 		setCacheControl(w, apCacheTime)
 		return impart.RenderActivityJSON(w, ac, http.StatusOK)
 	}

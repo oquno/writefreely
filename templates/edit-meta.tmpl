@@ -60,10 +60,10 @@
 				</ul>{{end}}
 
 				<dl class="dl-horizontal">
-					{{if .EditCollection}}
+					{{ if .EditCollection }}
 					<dt><label for="slug">Slug</label></dt>
 					<dd><input type="text" id="slug" name="slug" value="{{.Post.Slug}}" /></dd>
-					{{end}}
+					{{ end }}
 					<dt><label for="lang">Language</label></dt>
 					<dd>
 						<select name="lang" id="lang" dir="auto" class="inputform">
