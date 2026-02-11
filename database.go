@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/writeas/monday"
 
@@ -1571,6 +1572,15 @@ func (db *datastore) GetAPFollowers(c *Collection) (*[]RemoteUser, error) {
 	return &followers, nil
 }
 
+func shouldPreferDateSlug(s string) bool {
+	for _, r := range s {
+		if unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul) {
+			return true
+		}
+	}
+	return false
+}
+
 // CanCollect returns whether or not the given user can add the given post to a
 // collection. This is true when a post is already owned by the user.
 // NOTE: this is currently only used to potentially add owned posts to a
@@ -1579,7 +1589,8 @@ func (db *datastore) GetAPFollowers(c *Collection) (*[]RemoteUser, error) {
 func (db *datastore) CanCollect(cpr *ClaimPostRequest, userID int64) bool {
 	var title, content string
 	var lang sql.NullString
-	err := db.QueryRow("SELECT title, content, language FROM posts WHERE id = ? AND owner_id = ?", cpr.ID, userID).Scan(&title, &content, &lang)
+	var created time.Time
+	err := db.QueryRow("SELECT title, content, language, created FROM posts WHERE id = ? AND owner_id = ?", cpr.ID, userID).Scan(&title, &content, &lang, &created)
 	switch {
 	case err == sql.ErrNoRows:
 		return false
@@ -1590,7 +1601,11 @@ func (db *datastore) CanCollect(cpr *ClaimPostRequest, userID int64) bool {
 
 	// Since we have the post content and the post is collectable, generate the
 	// post's slug now.
-	cpr.Slug = getSlugFromPost(title, content, lang.String)
+	if title != "" && shouldPreferDateSlug(title) {
+		cpr.Slug = created.UTC().Format("20060102")
+	} else {
+		cpr.Slug = getSlugFromPost(title, content, lang.String)
+	}
 
 	return true
 }
