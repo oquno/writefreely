@@ -48,3 +48,29 @@ func TestOAuthDatastore(t *testing.T) {
 		assert.Equal(t, localUserID, foundUserID)
 	})
 }
+
+func TestShouldPreferDateSlug(t *testing.T) {
+	testCases := map[string]struct {
+		title    string
+		expected bool
+	}{
+		"空タイトル単体ではCJK判定しない": {
+			title:    "",
+			expected: false,
+		},
+		"CJKタイトルは日付ベースにする": {
+			title:    "こんにちは",
+			expected: true,
+		},
+		"英語タイトルは日付ベースにしない": {
+			title:    "hello-world",
+			expected: false,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, shouldPreferDateSlug(tc.title))
+		})
+	}
+}

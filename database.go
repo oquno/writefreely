@@ -1601,7 +1601,15 @@ func (db *datastore) CanCollect(cpr *ClaimPostRequest, userID int64) bool {
 
 	// Since we have the post content and the post is collectable, generate the
 	// post's slug now.
-	if title != "" && shouldPreferDateSlug(title) {
+	trimmedTitle := strings.TrimSpace(title)
+	if trimmedTitle == "" {
+		firstLine := strings.TrimSpace(strings.SplitN(content, "\n", 2)[0])
+		if strings.HasPrefix(firstLine, "# ") || strings.HasPrefix(firstLine, "#\t") {
+			cpr.Slug = getSlugFromPost(title, content, lang.String)
+		} else {
+			cpr.Slug = created.In(time.Local).Format("20060102")
+		}
+	} else if shouldPreferDateSlug(trimmedTitle) {
 		cpr.Slug = created.In(time.Local).Format("20060102")
 	} else {
 		cpr.Slug = getSlugFromPost(title, content, lang.String)
