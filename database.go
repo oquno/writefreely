@@ -1603,6 +1603,8 @@ func (db *datastore) CanCollect(cpr *ClaimPostRequest, userID int64) bool {
 	// post's slug now.
 	trimmedTitle := strings.TrimSpace(title)
 	if trimmedTitle == "" {
+		// Untitled posts can still include a Markdown title in the first line.
+		// If present, derive the slug from post content; otherwise use the date.
 		firstLine := strings.TrimSpace(strings.SplitN(content, "\n", 2)[0])
 		if strings.HasPrefix(firstLine, "# ") || strings.HasPrefix(firstLine, "#\t") {
 			cpr.Slug = getSlugFromPost(title, content, lang.String)
@@ -1610,6 +1612,7 @@ func (db *datastore) CanCollect(cpr *ClaimPostRequest, userID int64) bool {
 			cpr.Slug = created.In(time.Local).Format("20060102")
 		}
 	} else if shouldPreferDateSlug(trimmedTitle) {
+		// Preserve existing behavior for CJK titles: use a date-based slug.
 		cpr.Slug = created.In(time.Local).Format("20060102")
 	} else {
 		cpr.Slug = getSlugFromPost(title, content, lang.String)
